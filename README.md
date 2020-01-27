@@ -1,7 +1,13 @@
 # JIS
 Translator of the JSON file structure to the SQL structure.
 
-If you have .NET Core version 2.2 or higher installed, run the following commands on Linux:
+Libraries are required to run the program:
+
+Newtonsoft.Json `12.0.3`
+
+CommandLineParser `2.7.82`
+
+If you have .NET Core version `2.2` or higher installed, run the following commands on Linux:
 
 ```bash
 $ dotnet JIS.dll --help
