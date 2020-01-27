@@ -1,12 +1,14 @@
 # JIS
 Translator of the JSON file structure to the SQL structure.
 
+## Dependences
 Libraries are required to run the program:
 
-Newtonsoft.Json `12.0.3`
+- Newtonsoft.Json `12.0.3`
 
-CommandLineParser `2.7.82`
+- CommandLineParser `2.7.82`
 
+## Quick start
 If you have .NET Core version `2.2` or higher installed, run the following commands on Linux:
 
 ```bash
