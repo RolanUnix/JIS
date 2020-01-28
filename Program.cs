@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Windows.Input;
@@ -19,13 +20,16 @@ namespace JIS
             [Option('f', "file", Required = true, HelpText = "Path to the JSON file.")]
             public string File { get; set; }
 
-            [Option("sqlite", HelpText = "SQLite engine", Group = "engine")]
+            [Option("insert", Required = false, HelpText = "Path to the JSON file.", Default = false)]
+            public bool Insert { get; set; }
+            
+            [Option("sqlite", HelpText = "SQLite engine", Group = "DBMS")]
             public bool SQLite { get; set; }
             
-            [Option("mysql", HelpText = "MySQL engine", Group = "engine")]
+            [Option("mysql", HelpText = "MySQL engine", Group = "DBMS")]
             public bool MySql { get; set; }
             
-            [Option("postgres", HelpText = "Postgres engine", Group = "engine")]
+            [Option("postgres", HelpText = "Postgres engine", Group = "DBMS")]
             public bool Postgres { get; set; }
         }
         
@@ -54,6 +58,13 @@ namespace JIS
                 {
                     Console.WriteLine("-- SQlite");
                     Console.WriteLine(Parse((JObject) json, null, options.TableName, Engine.SQLite));
+                    
+                    if (options.Insert)
+                    {
+                        Console.WriteLine("-- Insert");
+                        Console.WriteLine(Import((JObject) json, null, options.TableName, Engine.SQLite));    
+                    }
+                    
                     Console.WriteLine();
                 }
                 
@@ -61,6 +72,13 @@ namespace JIS
                 {
                     Console.WriteLine("-- MySQL");
                     Console.WriteLine(Parse((JObject) json, null, options.TableName, Engine.MySql));
+                    
+                    if (options.Insert)
+                    {
+                        Console.WriteLine("-- Insert");
+                        Console.WriteLine(Import((JObject) json, null, options.TableName, Engine.MySql));   
+                        
+                    }
                     Console.WriteLine();
                 }
                 
@@ -68,12 +86,19 @@ namespace JIS
                 {
                     Console.WriteLine("-- Postgres");
                     Console.WriteLine(Parse((JObject) json, null, options.TableName, Engine.Postgres));
+                    
+                    if (options.Insert)
+                    {
+                        Console.WriteLine("-- Insert");
+                        Console.WriteLine(Import((JObject) json, null, options.TableName, Engine.Postgres));    
+                    }
+                    
                     Console.WriteLine();
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Parsing error: {e.Message}");
+                Console.WriteLine($"Parsing error: {e}");
             }
         }
 
@@ -81,7 +106,7 @@ namespace JIS
         {
             var newTableName = (relation != null ? relation + "_" : string.Empty) + tableName;
             
-            var builder = new StringBuilder($"create table {newTableName} (");
+            var builder = new StringBuilder($"create table if not exists {newTableName} (");
 
             switch (engine)
             {
@@ -180,6 +205,99 @@ namespace JIS
             }
             
             return builder.ToString();
+        }
+
+        private static string Import(JObject json, string relation, string tableName, Engine engine)
+        {
+            var newTableName = (relation != null ? relation + "_" : string.Empty) + tableName;
+            var builder = new StringBuilder($"insert into {newTableName} ");
+            var postAppend = new List<string>();
+            var structureParameters = new List<string>();
+
+            if (relation != null) structureParameters.Add($"{relation}_id");
+            
+            foreach (var (key, value) in json)
+            {
+                switch (value.Type)
+                {
+                    case JTokenType.Object:
+                        continue;
+                    case JTokenType.Array:
+                        continue;
+                    default:
+                        structureParameters.Add(key);
+                        break;
+                }
+            }
+
+            builder.Append($"({string.Join(", ", structureParameters)}) values ");
+            var valuesParameters = new List<string>();
+            
+            if (relation != null) valuesParameters.Add($"(select MAX(id) from {relation})");
+            
+            foreach (var (key, value) in json)
+            {
+                switch (value.Type)
+                {
+                    case JTokenType.Integer:
+                        valuesParameters.Add(value.ToObject<int>().ToString());
+                        break;
+                    case JTokenType.String:
+                        valuesParameters.Add($"'{value.ToObject<string>()}'");
+                        break;
+                    case JTokenType.Boolean:
+                        valuesParameters.Add(value.ToObject<bool>() ? (engine != Engine.MySql ? "true": "1") : (engine != Engine.MySql ? "false": "0"));
+                        break;
+                    case JTokenType.Float:
+                        valuesParameters.Add(value.ToObject<double>().ToString(CultureInfo.InvariantCulture));
+                        break;
+                    case JTokenType.Object:
+                        postAppend.Add(Import(value.ToObject<JObject>(), newTableName, key, engine));
+                        break;
+                    case JTokenType.Array:
+                        postAppend.Add(string.Join('\n', ImportArray(value.ToObject<JArray>(), newTableName, key, engine)));
+                        break;
+                }
+            }
+
+            builder.Append($"({string.Join(", ", valuesParameters)});");
+
+            foreach (var query in postAppend)
+            {
+                builder.Append($"\n{query}");
+            }
+            
+            return builder.ToString();
+        }
+
+        private static IEnumerable<string> ImportArray(JArray json, string relation, string tableName, Engine engine)
+        {
+            var newTableName = $"{relation}_{tableName}";
+            var list = new List<string>();
+            
+            foreach (var value in json)
+            {
+                switch (value.Type)
+                {
+                    case JTokenType.Integer:
+                        list.Add($"insert into {newTableName} ({relation}_id, value) values ((select MAX(id) from {relation}), {value.ToObject<int>()});");
+                        break;
+                    case JTokenType.String:
+                        list.Add($"insert into {newTableName} ({relation}_id, value) values ((select MAX(id) from {relation}), '{value.ToObject<string>()}');");
+                        break;
+                    case JTokenType.Boolean:
+                        list.Add($"insert into {newTableName} ({relation}_id, value) values ((select MAX(id) from {relation}), {(value.ToObject<bool>() ? (engine != Engine.MySql ? "true": "1") : (engine != Engine.MySql ? "false": "0"))});");
+                        break;
+                    case JTokenType.Float:
+                        list.Add($"insert into {newTableName} ({relation}_id, value) values ((select MAX(id) from {relation}), {value.ToObject<float>().ToString(CultureInfo.InvariantCulture)});");
+                        break;
+                    case JTokenType.Object:
+                        list.Add(Import(value.ToObject<JObject>(), relation, tableName, engine));
+                        break;
+                }
+            }
+
+            return list;
         }
     }
 }
