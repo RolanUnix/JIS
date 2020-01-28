@@ -26,6 +26,8 @@ JIS.exe --help
 
 `-f or --file` is the path to the JSON file.
 
+`--insert` this option generates data insertion.
+
 `--sqlite` this option indicates that the structure for the SQLite engine will be generated.
 
 `--mysql` this option indicates that the structure for the MySQL engine will be generated.
