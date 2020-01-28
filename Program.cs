@@ -176,7 +176,7 @@ namespace JIS
                                     postAppend.Add(Parse(array[0].ToObject<JObject>(), newTableName, key, engine));
                                     break;
                                 case JTokenType.Null:
-                                    throw new Exception($"The Null type is not supported in objects and arrays. Set the values explicitly.");
+                                    continue;
                                 default:
                                     throw new Exception($"The {value.Type} type is not supported in arrays");
                             }
@@ -187,7 +187,7 @@ namespace JIS
                         builder.Append($", {key} float not null");
                         break;
                     case JTokenType.Null:
-                        throw new Exception($"The Null type is not supported in objects and arrays. Set the values explicitly.");
+                        continue;
                     default:
                         throw new Exception($"The {value.Type} type is not supported in objects");
                 }
@@ -224,6 +224,8 @@ namespace JIS
                         continue;
                     case JTokenType.Array:
                         continue;
+                    case JTokenType.Null:
+                        continue;
                     default:
                         structureParameters.Add(key);
                         break;
@@ -257,6 +259,10 @@ namespace JIS
                     case JTokenType.Array:
                         postAppend.Add(string.Join('\n', ImportArray(value.ToObject<JArray>(), newTableName, key, engine)));
                         break;
+                    case JTokenType.Null:
+                        continue;
+                    default:
+                        throw new Exception($"The {value.Type} type is not supported in objects");
                 }
             }
 
