@@ -142,7 +142,7 @@ namespace JIS
                         builder.Append($", {key} integer null default null");
                         break;
                     case JTokenType.String:
-                        builder.Append($", {key} text(65535) null default null");
+                        builder.Append($", {key} {(engine == Engine.Postgres ? "varchar" : "text")}(65535) null default null");
                         break;
                     case JTokenType.Boolean:
                         builder.Append($", {key} boolean null default null");
@@ -196,10 +196,10 @@ namespace JIS
                         builder.Append($", {key} float null default null");
                         break;
                     case JTokenType.Date:
-                        builder.Append($", {key} datetime null default null");
+                        builder.Append($", {key} {(engine == Engine.Postgres ? "date" : "datetime")} null default null");
                         break;
                     case JTokenType.Null:
-                        builder.Append($", {key} text(65535) null default null");
+                        builder.Append($", {key} {(engine == Engine.Postgres ? "varchar" : "text")}(65535) null default null");
                         break;
                     default:
                         Console.WriteLine(key);
@@ -210,9 +210,15 @@ namespace JIS
             if (relation != null) builder.Append($", foreign key ({relation}_id) references {relation}(id)");
 
             builder.Append(")");
-            if (engine == Engine.MySql) builder.Append($" engine InnoDB");
-            builder.Append($" character set {_options.Character} collate {_options.Collate};");
+            
+            if (engine == Engine.MySql)
+            {
+                builder.Append($" engine InnoDB");
+                builder.Append($" character set {_options.Character} collate {_options.Collate}");
+            }
 
+            builder.Append(";");
+            
             foreach (var query in postAppend)
             {
                 builder.Append($"\n{query}");
