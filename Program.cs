@@ -12,6 +12,8 @@ namespace JIS
 {
     internal static class Program
     {
+        private static Options _options;
+        
         private class Options
         {
             [Option('t', "table", Required = false, HelpText = "Name of the main table.", Default = "main")] 
@@ -20,7 +22,13 @@ namespace JIS
             [Option('f', "file", Required = true, HelpText = "Path to the JSON file.")]
             public string File { get; set; }
 
-            [Option("insert", Required = false, HelpText = "Path to the JSON file.", Default = false)]
+            [Option("character", Required = false, HelpText = "Character table.", Default = "utf8")]
+            public string Character { get; set; }
+
+            [Option("collate", Required = false, HelpText = "Collate table.", Default = "utf8_general_ci")]
+            public string Collate { get; set; }
+            
+            [Option("insert", Required = false, HelpText = "Insertion data.", Default = false)]
             public bool Insert { get; set; }
             
             [Option("sqlite", HelpText = "SQLite engine", Group = "DBMS")]
@@ -37,6 +45,7 @@ namespace JIS
 
         private static void CommandLineParser(Options options)
         {
+            _options = options;
             JToken json;
             
             try
@@ -130,13 +139,13 @@ namespace JIS
                 switch (value.Type)
                 {
                     case JTokenType.Integer:
-                        builder.Append($", {key} integer not null");
+                        builder.Append($", {key} integer null default null");
                         break;
                     case JTokenType.String:
-                        builder.Append($", {key} varchar(255) not null");
+                        builder.Append($", {key} text(65535) null default null");
                         break;
                     case JTokenType.Boolean:
-                        builder.Append($", {key} boolean not null");
+                        builder.Append($", {key} boolean null default null");
                         break;
                     case JTokenType.Object:
                         postAppend.Add(Parse(value.ToObject<JObject>(), newTableName, key, engine));
@@ -184,11 +193,16 @@ namespace JIS
                         
                         break;
                     case JTokenType.Float:
-                        builder.Append($", {key} float not null");
+                        builder.Append($", {key} float null default null");
+                        break;
+                    case JTokenType.Date:
+                        builder.Append($", {key} datetime null default null");
                         break;
                     case JTokenType.Null:
-                        continue;
+                        builder.Append($", {key} text(65535) null default null");
+                        break;
                     default:
+                        Console.WriteLine(key);
                         throw new Exception($"The {value.Type} type is not supported in objects");
                 }
             }
@@ -197,7 +211,7 @@ namespace JIS
 
             builder.Append(")");
             if (engine == Engine.MySql) builder.Append($" engine InnoDB");
-            builder.Append(";");
+            builder.Append($" character set {_options.Character} collate {_options.Collate};");
 
             foreach (var query in postAppend)
             {
@@ -253,6 +267,9 @@ namespace JIS
                     case JTokenType.Float:
                         valuesParameters.Add(value.ToObject<double>().ToString(CultureInfo.InvariantCulture));
                         break;
+                    case JTokenType.Date:
+                        valuesParameters.Add($"'{DateTime.Parse(value.ToObject<string>()).ToString("yyyy-MM-dd hh:mm:ss")}'");
+                        break;
                     case JTokenType.Object:
                         postAppend.Add(Import(value.ToObject<JObject>(), newTableName, key, engine));
                         break;
@@ -262,6 +279,7 @@ namespace JIS
                     case JTokenType.Null:
                         continue;
                     default:
+                        Console.WriteLine(key);
                         throw new Exception($"The {value.Type} type is not supported in objects");
                 }
             }
