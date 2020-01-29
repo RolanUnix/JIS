@@ -26,9 +26,9 @@ JIS.exe --help
 
 `-f or --file` is the path to the JSON file.
 
-`character` is character table.
+`--character` is character table.
 
-`collate` is collate table.
+`--collate` is collate table.
 
 `--insert` this option generates data insertion.
 
