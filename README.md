@@ -26,6 +26,10 @@ JIS.exe --help
 
 `-f or --file` is the path to the JSON file.
 
+`character` is character table.
+
+`collate` is collate table.
+
 `--insert` this option generates data insertion.
 
 `--sqlite` this option indicates that the structure for the SQLite engine will be generated.
